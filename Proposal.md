@@ -28,7 +28,7 @@ The goal of the NewsNugget project is to provide users with the latest news from
 
 - Integrate with NewsAPI to fetch news articles
 - Browse news articles by category
-- Save and retrieve user's favorite articles
+- Create, edit and delete articles
 
 ## Stretch Goals
 
