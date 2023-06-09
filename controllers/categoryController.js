@@ -11,7 +11,9 @@ export async function getAllCategories(req, res) {
 
 export async function getCategoryByName(req, res) {
   try {
-    const category = await Category.findOne({ name: req.params.name });
+    const category = await Category.findOne({ name: req.params.name }).populate(
+      "articles"
+    );
     if (category == null) {
       return res.status(404).json({ message: "Cannot find category" });
     }
@@ -19,4 +21,4 @@ export async function getCategoryByName(req, res) {
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
-};
+}

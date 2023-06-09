@@ -27,22 +27,6 @@ async function consumeNewData() {
     console.error("Failed to seed data:", error);
   }
 }
-// category api not avaiable: i saved data manualy by getting it form currentsapi website
-// async function consumeCategoryData() {
-//   try {
-//     const categoryUrl = `https://api.currentsapi.services/v1/available/category?apiKey=${API_KEY}`;
-//     console.log("fatching category Data.")
-//     const response = await axios.get(categoryUrl);
-
-//     // Save the data to category.json
-//     const data = JSON.stringify(response.data.news, null, 2);
-//     fs.writeFileSync('data/category.json', data);
-
-//     console.log('Data fetched and saved!');
-//   } catch (error) {
-//     console.error('Failed to seed data:', error);
-//   }
-// }
 
 const newsData = newsRaw.map((data) => {
   const newNews = {};
@@ -57,24 +41,48 @@ const newsData = newsRaw.map((data) => {
   return newNews;
 });
 
-// News.create(newsData)
-//   .then((news) => {
-//     console.log(news);
-//   })
-//   .catch((err) => {
-//     console.log(err);
-//   });
-
 const categoriesData = categoryRaw.categories.map((data) => {
   const newCategory = {};
   newCategory.name = data;
   return newCategory;
 });
 
-Category.create(categoriesData)
-  .then((docs) => {
-    console.log(docs);
-  })
-  .catch((err) => {
-    console.log(err);
-  });
+// Seed the database
+async function seedDatabase() {
+  try {
+    // Create categories first
+    const categories = await Category.create(categoriesData);
+
+    // Create a map for quick category lookups
+    const categoryMap = {};
+    categories.forEach((cat) => {
+      categoryMap[cat.name] = cat._id;
+    });
+
+    // Now, create news data
+    for (const newsItem of newsData) {
+      // Find the category ID
+      const categoryId = categoryMap[newsItem.category];
+
+      if (categoryId) {
+        // Create the news
+        const newsDoc = await News.create({
+          ...newsItem,
+          category: categoryId,
+        });
+
+        // Now, find the category document and update it
+        const categoryDoc = await Category.findById(categoryId);
+        categoryDoc.articles.push(newsDoc._id);
+        await categoryDoc.save();
+      } else {
+        console.error(`Category not found for news item: ${newsItem.title}`);
+      }
+    }
+  } catch (error) {
+    console.error("Failed to seed data:", error);
+  }
+}
+
+// Call your new function
+seedDatabase();

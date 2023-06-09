@@ -1,4 +1,5 @@
 import News from "../models/News.js";
+import Category from "../models/Category.js";
 
 // Controller for GET /news
 export const getAllNews = (req, res) => {
@@ -43,22 +44,30 @@ export const getNewsById = (req, res) => {
   }
 };
 
-export const getNewsByCategoryName = (req, res) => {
-  const categoryName = req.params.categoryName;
-  News.find({ category: { $in: [categoryName] } }).then((doc) => {
-    res.send(doc);
-  })
-  .catch((error) => {
-    //if any error occurs while getting data
-    res.status(500);
-    res.send({
-      message: error.message,
+export const getNewsByCategoryId = async (req, res) => {
+  const categoryId = req.params.categoryId;
+  const category = await Category.findById(categoryId);
+  console.log(category);
+  News.find({ _id: { $in: category.articles } })
+    .then((doc) => {
+      res.send(doc);
+    })
+    .catch((error) => {
+      //if any error occurs while getting data
+      res.status(500);
+      res.send({
+        message: error.message,
+      });
     });
-  })
 };
 
 export const addNews = (req, res) => {
   const data = req.body;
+
+  // Assuming `data.category` is an array of Category IDs
+  const categoryIds = data.category;
+
+  // Create the News
   News.create({
     title: data.title,
     description: data.description,
@@ -66,31 +75,73 @@ export const addNews = (req, res) => {
     author: data.author,
     image: data.image,
     language: data.language,
-    category: data.category,
+    category: categoryIds,
     published: new Date(),
   })
-    .then((doc) => {
-      res.send(doc);
+    .then((newsDoc) => {
+      // If the news document is created successfully, update each referenced Category document
+      // by pushing the ID of the newly created News document into their 'articles' array
+      Category.updateMany(
+        { _id: { $in: categoryIds } },
+        { $push: { articles: newsDoc._id } }
+      )
+        .then(() => {
+          res.status(201).json(newsDoc);
+        })
+        .catch((error) => {
+          res.status(500).json({ message: error.message });
+        });
     })
     .catch((error) => {
-      res.status(500);
-      res.send({
-        message: error.message,
-      });
+      res.status(500).json({ message: error.message });
     });
-  return res;
 };
 
-export const updateNews = (req, res) => {
+export const updateNews = async (req, res) => {
   const id = req.params.id;
-  const body = req.body;
-  News.findOneAndUpdate({ _id: id }, body, { new: true })
-    .then((doc) => {
-      res.send(doc);
-    })
-    .catch((err) => {
-      res.status(500).send({ error: err.message })
-    });
+  const newNews = req.body;
+  const newCategories = newNews.category;
+  let oldCategories;
+  //get the old news
+  const oldNews = await News.findById(id);
+
+  if (oldNews) {
+    oldCategories = oldNews.category;
+    oldNews.title = newNews.title;
+    oldNews.description = newNews.description;
+    oldNews.url = newNews.url;
+    oldNews.author = newNews.author;
+    oldNews.image = newNews.image;
+    oldNews.language = newNews.language;
+    oldNews.category = newCategories;
+    oldNews.published = new Date();
+    const updatedNews = await oldNews.save();
+    if (updatedNews) {
+      Category.updateMany(
+        { _id: { $in: oldCategories } },
+        { $pull: { articles: updatedNews._id } }
+      )
+        .then((doc) => {
+          console.log("pull");
+        })
+        .catch((err) => {
+          console.log("error in pull");
+        });
+      Category.updateMany(
+        { _id: { $in: newCategories } },
+        { $push: { articles: updatedNews._id } }
+      )
+        .then((doc) => {
+          console.log("push");
+        })
+        .catch((err) => {
+          console.log("error in push");
+        });
+    }
+    res.send(updatedNews);
+  } else {
+    res.status(204).json({ message: `Data not found with ${id}` });
+  }
 };
 
 export const deleteNews = (req, res) => {

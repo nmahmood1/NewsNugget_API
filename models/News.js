@@ -10,11 +10,11 @@ const NewsSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  url:{
+  url: {
     type: String,
     required: true,
   },
-  author:{
+  author: {
     type: String,
     required: true,
   },
@@ -22,16 +22,18 @@ const NewsSchema = new mongoose.Schema({
     type: String,
     required: false,
   },
-  language:{
+  language: {
     type: String,
     required: false,
   },
-  category: {
-    type: Array,
-    required: false,
-  },
+  category: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Category",
+    },
+  ],
   published: Date,
 });
 
-const  News  = mongoose.model("News", NewsSchema);
+const News = mongoose.model("News", NewsSchema);
 export default News;
